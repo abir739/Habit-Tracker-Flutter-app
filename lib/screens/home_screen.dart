@@ -31,23 +31,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // // Sample motivational quotes
-  // final List<String> _motivationalQuotes = [
-  //   "Tu n’as pas besoin d’être motivé tous les jours. Tu as juste besoin d’être discipliné un peu chaque jour.",
-  //   "📌 النجاح لا يبدأ بالاندفاع، بل بالاستمرارية.",
-  //   "هذه لحظة تطويري. مهما كان شعوري، سأحترم هذا الموعد."
-  //       "أنا أعمل من أجل نفسي، من أجل مستقبلي، من أجل خروجي من الدائرة الحالية."
-  //       "البدايات من جديد لا تُقلل من قيمتك، بل تُثبت أنك أقوى من كل عثرة."
-  //       "Small steps every day lead to big results.",
-  //   "💬أنت لست ضعيفًا، أنت فقط توقفت لفترة. ولكن الآن، أنت في لحظة الرجوع، ولحظة الرجوع هي بداية النصر.",
-  //   "Consistency is the key to success.",
-  //   "Your habits shape your future.",
-  //   "💬الألم الذي تشعر به لأنك لم تدرس، هو نفسه الوقود الذي سيحملك نحو النجاح، فقط تحرّك.",
-  //   "Every day is a new chance to grow.",
-  //   "💬 افعل القليل اليوم... وغدًا ستكون شخصًا يتجاوز المقابلات بثقة."
-  //       "Stay committed, and watch your progress soar!"
-  // ];
-
   @override
   void initState() {
     super.initState();
