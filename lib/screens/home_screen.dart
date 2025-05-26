@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  DateTime selectedDate = DateTime.now();
   @override
   void initState() {
     super.initState();
@@ -222,6 +223,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _selectedDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2010),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: Theme.of(context).colorScheme.primary,
+                    onPrimary: Theme.of(context).colorScheme.onPrimary,
+                    surface: Theme.of(context).colorScheme.surface,
+                  ),
+            ),
+            child: child!);
+      },
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode =
@@ -248,6 +274,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           },
         ),
         actions: [
+          IconButton(onPressed: _selectedDate, icon: const Icon(Icons.calendar_today), tooltip: 'Select Date',),
           IconButton(
             icon: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
             onPressed: () {
@@ -313,148 +340,157 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.only(bottom: 80),
-          itemCount: habits.length,
-          itemBuilder: (context, index) {
-            final habit = habits[index];
-            final today = DateTime.now();
-            final normalizedToday =
-                DateTime(today.year, today.month, today.day);
-            final isCompletedToday =
-                habit.completedDays.contains(normalizedToday);
+        return Column(
+          children: [
+            Padding(padding: const EdgeInsets.all(8.0),
+            child: Text('Selected Date: ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+            style: Theme.of(context).textTheme.titleMedium,),),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 80),
+                itemCount: habits.length,
+                itemBuilder: (context, index) {
+                  final habit = habits[index];
 
-            // Calculate streak
-            int currentStreak = 0;
-            DateTime checkDate = normalizedToday;
-
-            if (isCompletedToday) {
-              currentStreak = 1;
-              checkDate = checkDate.subtract(const Duration(days: 1));
-            }
-
-            while (true) {
-              final normalizedCheck =
-                  DateTime(checkDate.year, checkDate.month, checkDate.day);
-              if (habit.completedDays.contains(normalizedCheck)) {
-                currentStreak++;
-                checkDate = checkDate.subtract(const Duration(days: 1));
-              } else {
-                break;
-              }
-            }
-
-            final AppSettings? settings =
-                habitDatabase.settingsBox.get('settings');
-            final DateTime startDate =
-                settings?.firstLaunchDate ?? DateTime.now();
-            return Slidable(
-              endActionPane: ActionPane(
-                motion: const ScrollMotion(),
-                children: [
-                  SlidableAction(
-                    onPressed: (context) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => HeatmapCalendar(
-                            habit: habit,
-                            datasets: {
-                              for (var date in habit.completedDays)
-                                DateTime(date.year, date.month, date.day): 1,
+                  final normalizedToday =
+                      DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+                  final isCompletedToday =
+                      habit.completedDays.contains(normalizedToday);
+              
+                  // Calculate streak
+                  int currentStreak = 0;
+                  DateTime checkDate = normalizedToday;
+              
+                  if (isCompletedToday) {
+                    currentStreak = 1;
+                    checkDate = checkDate.subtract(const Duration(days: 1));
+                  }
+              
+                  while (true) {
+                    final normalizedCheck =
+                        DateTime(checkDate.year, checkDate.month, checkDate.day);
+                    if (habit.completedDays.contains(normalizedCheck)) {
+                      currentStreak++;
+                      checkDate = checkDate.subtract(const Duration(days: 1));
+                    } else {
+                      break;
+                    }
+                  }
+              
+                  final AppSettings? settings =
+                      habitDatabase.settingsBox.get('settings');
+                  final DateTime startDate =
+                      settings?.firstLaunchDate ?? DateTime.now();
+                  return Slidable(
+                    endActionPane: ActionPane(
+                      motion: const ScrollMotion(),
+                      children: [
+                        SlidableAction(
+                          onPressed: (context) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => HeatmapCalendar(
+                                  habit: habit,
+                                  datasets: {
+                                    for (var date in habit.completedDays)
+                                      DateTime(date.year, date.month, date.day): 1,
+                                  },
+                                  startDate: startDate,
+                                  // startDate: DateTime.now()
+                                  //     .subtract(const Duration(days: 60)),
+                                ),
+                              ),
+                            );
+                          },
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          icon: Icons.calendar_month,
+                          label: 'Stats',
+                        ),
+                        SlidableAction(
+                          onPressed: (context) => editHabit(context, habit, index),
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          icon: Icons.edit,
+                          label: 'Edit',
+                        ),
+                        SlidableAction(
+                          onPressed: (context) => deleteHabit(context, habit, index),
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          icon: Icons.delete,
+                          label: 'Delete',
+                        ),
+                      ],
+                    ),
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: isCompletedToday
+                            ? BorderSide(
+                                color: Colors.green,
+                                // color: Theme.of(context).colorScheme.primary,
+                                width: 2)
+                            : BorderSide.none,
+                      ),
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        title: Text(
+                          habit.name ?? 'Unnamed Habit',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                decoration: isCompletedToday
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                        ),
+                        subtitle: currentStreak > 0
+                            ? Text(
+                                '🔥 $currentStreak day streak',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            : null,
+                        leading: CircleAvatar(
+                          backgroundColor: isCompletedToday
+                              ? Colors.green
+                              // ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.surfaceContainer,
+                          child: IconButton(
+                            icon: Icon(
+                              isCompletedToday
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                              color: isCompletedToday
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () {
+                              habitDatabase.toggleHabitCompletion(index, selectedDate);
+                              Vibration.vibrate(duration: 100);
                             },
-                            startDate: startDate,
-                            // startDate: DateTime.now()
-                            //     .subtract(const Duration(days: 60)),
                           ),
                         ),
-                      );
-                    },
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    icon: Icons.calendar_month,
-                    label: 'Stats',
-                  ),
-                  SlidableAction(
-                    onPressed: (context) => editHabit(context, habit, index),
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    icon: Icons.edit,
-                    label: 'Edit',
-                  ),
-                  SlidableAction(
-                    onPressed: (context) => deleteHabit(context, habit, index),
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    icon: Icons.delete,
-                    label: 'Delete',
-                  ),
-                ],
-              ),
-              child: Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: isCompletedToday
-                      ? BorderSide(
-                          color: Colors.green,
-                          // color: Theme.of(context).colorScheme.primary,
-                          width: 2)
-                      : BorderSide.none,
-                ),
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  title: Text(
-                    habit.name ?? 'Unnamed Habit',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          decoration: isCompletedToday
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                        ),
-                  ),
-                  subtitle: currentStreak > 0
-                      ? Text(
-                          '🔥 $currentStreak day streak',
+                        trailing: Text(
+                          'Total: ${habit.completedDays.length}',
                           style: TextStyle(
-                            color: Colors.orange,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w600,
                           ),
-                        )
-                      : null,
-                  leading: CircleAvatar(
-                    backgroundColor: isCompletedToday
-                        ? Colors.green
-                        // ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceContainer,
-                    child: IconButton(
-                      icon: Icon(
-                        isCompletedToday
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
-                        color: isCompletedToday
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                      onPressed: () {
-                        habitDatabase.toggleHabitCompletion(index);
-                        Vibration.vibrate(duration: 100);
-                      },
                     ),
-                  ),
-                  trailing: Text(
-                    'Total: ${habit.completedDays.length}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                  ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0.0);
+                },
               ),
-            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0.0);
-          },
+            ),
+          ],
         );
       },
     );

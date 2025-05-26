@@ -30,15 +30,14 @@ class HabitDatabase extends ChangeNotifier {
     notifyListeners();
   }
 
-
 // Toggle a habit’s completion status for today
-  Future<void> toggleHabitCompletion(int index) async {
+  Future<void> toggleHabitCompletion(int index, DateTime date) async {
     final habit = habitBox.getAt(index);
     if (habit == null) return;
 
-    final today = DateTime.now();
-    final normalizedtoday = DateTime(today.year, today.month, today.day);
-
+    // final today = DateTime.now();
+    // final normalizedtoday = DateTime(today.year, today.month, today.day);
+    final normalizedtoday = DateTime(date.year, date.month, date.day);
     if (habit.completedDays.contains(normalizedtoday)) {
       habit.completedDays.remove(normalizedtoday);
     } else {
@@ -60,6 +59,4 @@ class HabitDatabase extends ChangeNotifier {
     await habitBox.putAt(index, habit);
     notifyListeners();
   }
-
-
 }
