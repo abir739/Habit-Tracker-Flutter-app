@@ -1,6 +1,4 @@
 import 'dart:math';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import 'package:habit_tracker/database/habit_db.dart';
@@ -21,7 +19,6 @@ import 'package:vibration/vibration.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -146,6 +143,85 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void editHabit(BuildContext context, Habit habit, int index) {
+    textController.text = habit.name ?? '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Edit Habit',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        content: TextField(
+          controller: textController,
+          decoration: InputDecoration(
+            hintText: 'Edit habit name',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainer,
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              String newName = textController.text.trim();
+              if (newName.isNotEmpty) {
+                context.read<HabitDatabase>().updateHabitName(index, newName);
+                Navigator.pop(context);
+                textController.clear();
+                Vibration.vibrate(duration: 100);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void deleteHabit(BuildContext context, Habit habit, int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Habit'),
+        content: Text(
+          'Are you sure you want to delete "${habit.name}" ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<HabitDatabase>().deleteHabit(index);
+              Navigator.pop(context);
+              Vibration.vibrate(duration: 100);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode =
@@ -220,6 +296,167 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _progressWidget(),
         ],
       ),
+    );
+  }
+
+// Habits tab with list of habits
+  Widget _habitListWidget() {
+    return Consumer<HabitDatabase>(
+      builder: (context, habitDatabase, child) {
+        final habits = habitDatabase.getAllHabits();
+
+        if (habits.isEmpty) {
+          return _emptyStateWidget(
+            'No habits yet',
+            'Tap the + button to add your first habit!',
+            Icons.add_task,
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 80),
+          itemCount: habits.length,
+          itemBuilder: (context, index) {
+            final habit = habits[index];
+            final today = DateTime.now();
+            final normalizedToday =
+                DateTime(today.year, today.month, today.day);
+            final isCompletedToday =
+                habit.completedDays.contains(normalizedToday);
+
+            // Calculate streak
+            int currentStreak = 0;
+            DateTime checkDate = normalizedToday;
+
+            if (isCompletedToday) {
+              currentStreak = 1;
+              checkDate = checkDate.subtract(const Duration(days: 1));
+            }
+
+            while (true) {
+              final normalizedCheck =
+                  DateTime(checkDate.year, checkDate.month, checkDate.day);
+              if (habit.completedDays.contains(normalizedCheck)) {
+                currentStreak++;
+                checkDate = checkDate.subtract(const Duration(days: 1));
+              } else {
+                break;
+              }
+            }
+
+            final AppSettings? settings =
+                habitDatabase.settingsBox.get('settings');
+            final DateTime startDate =
+                settings?.firstLaunchDate ?? DateTime.now();
+            return Slidable(
+              endActionPane: ActionPane(
+                motion: const ScrollMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (context) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HeatmapCalendar(
+                            habit: habit,
+                            datasets: {
+                              for (var date in habit.completedDays)
+                                DateTime(date.year, date.month, date.day): 1,
+                            },
+                            startDate: startDate,
+                            // startDate: DateTime.now()
+                            //     .subtract(const Duration(days: 60)),
+                          ),
+                        ),
+                      );
+                    },
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    icon: Icons.calendar_month,
+                    label: 'Stats',
+                  ),
+                  SlidableAction(
+                    onPressed: (context) => editHabit(context, habit, index),
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    icon: Icons.edit,
+                    label: 'Edit',
+                  ),
+                  SlidableAction(
+                    onPressed: (context) => deleteHabit(context, habit, index),
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete,
+                    label: 'Delete',
+                  ),
+                ],
+              ),
+              child: Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isCompletedToday
+                      ? BorderSide(
+                          color: Colors.green,
+                          // color: Theme.of(context).colorScheme.primary,
+                          width: 2)
+                      : BorderSide.none,
+                ),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  title: Text(
+                    habit.name ?? 'Unnamed Habit',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          decoration: isCompletedToday
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                        ),
+                  ),
+                  subtitle: currentStreak > 0
+                      ? Text(
+                          '🔥 $currentStreak day streak',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : null,
+                  leading: CircleAvatar(
+                    backgroundColor: isCompletedToday
+                        ? Colors.green
+                        // ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.surfaceContainer,
+                    child: IconButton(
+                      icon: Icon(
+                        isCompletedToday
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                        color: isCompletedToday
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () {
+                        habitDatabase.toggleHabitCompletion(index);
+                        Vibration.vibrate(duration: 100);
+                      },
+                    ),
+                  ),
+                  trailing: Text(
+                    'Total: ${habit.completedDays.length}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0.0);
+          },
+        );
+      },
     );
   }
 
@@ -630,241 +867,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       ],
-    );
-  }
-
-  // Habits tab with list of habits
-  Widget _habitListWidget() {
-    return Consumer<HabitDatabase>(
-      builder: (context, habitDatabase, child) {
-        final habits = habitDatabase.getAllHabits();
-
-        if (habits.isEmpty) {
-          return _emptyStateWidget(
-            'No habits yet',
-            'Tap the + button to add your first habit!',
-            Icons.add_task,
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.only(bottom: 80),
-          itemCount: habits.length,
-          itemBuilder: (context, index) {
-            final habit = habits[index];
-            final today = DateTime.now();
-            final normalizedToday =
-                DateTime(today.year, today.month, today.day);
-            final isCompletedToday =
-                habit.completedDays.contains(normalizedToday);
-
-            // Calculate streak
-            int currentStreak = 0;
-            DateTime checkDate = normalizedToday;
-
-            if (isCompletedToday) {
-              currentStreak = 1;
-              checkDate = checkDate.subtract(const Duration(days: 1));
-            }
-
-            while (true) {
-              final normalizedCheck =
-                  DateTime(checkDate.year, checkDate.month, checkDate.day);
-              if (habit.completedDays.contains(normalizedCheck)) {
-                currentStreak++;
-                checkDate = checkDate.subtract(const Duration(days: 1));
-              } else {
-                break;
-              }
-            }
-
-            return Slidable(
-              endActionPane: ActionPane(
-                motion: const ScrollMotion(),
-                children: [
-                  SlidableAction(
-                    onPressed: (context) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => HeatmapCalendar(
-                            habit: habit,
-                            datasets: {
-                              for (var date in habit.completedDays)
-                                DateTime(date.year, date.month, date.day): 1,
-                            },
-                            startDate: DateTime.now()
-                                .subtract(const Duration(days: 60)),
-                          ),
-                        ),
-                      );
-                    },
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    icon: Icons.calendar_month,
-                    label: 'Stats',
-                  ),
-                  SlidableAction(
-                    onPressed: (context) {
-                      textController.text = habit.name ?? '';
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text(
-                            'Edit Habit',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          content: TextField(
-                            controller: textController,
-                            decoration: InputDecoration(
-                              hintText: 'Edit habit name',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              filled: true,
-                              fillColor: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainer,
-                            ),
-                            autofocus: true,
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                String newName = textController.text.trim();
-                                if (newName.isNotEmpty) {
-                                  habitDatabase.UpdateHabitName(index, newName);
-                                  Navigator.pop(context);
-                                  textController.clear();
-                                  Vibration.vibrate(duration: 100);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.primary,
-                                foregroundColor:
-                                    Theme.of(context).colorScheme.onPrimary,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    icon: Icons.edit,
-                    label: 'Edit',
-                  ),
-                  SlidableAction(
-                    onPressed: (context) {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Habit'),
-                          content: Text(
-                            'Are you sure you want to delete "${habit.name}" ?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                habitDatabase.deleteHabit(index);
-                                Navigator.pop(context);
-                                Vibration.vibrate(duration: 100);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
-                              ),
-                              child: const Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    icon: Icons.delete,
-                    label: 'Delete',
-                  ),
-                ],
-              ),
-              child: Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: isCompletedToday
-                      ? BorderSide(
-                          color: Colors.green,
-                          // color: Theme.of(context).colorScheme.primary,
-                          width: 2)
-                      : BorderSide.none,
-                ),
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  title: Text(
-                    habit.name ?? 'Unnamed Habit',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          decoration: isCompletedToday
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                        ),
-                  ),
-                  subtitle: currentStreak > 0
-                      ? Text(
-                          '🔥 $currentStreak day streak',
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      : null,
-                  leading: CircleAvatar(
-                    backgroundColor: isCompletedToday
-                        ? Colors.green
-                        // ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceContainer,
-                    child: IconButton(
-                      icon: Icon(
-                        isCompletedToday
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
-                        color: isCompletedToday
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: () {
-                        habitDatabase.toggleHabitCompletion(index);
-                        Vibration.vibrate(duration: 100);
-                      },
-                    ),
-                  ),
-                  trailing: Text(
-                    'Total: ${habit.completedDays.length}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0.0);
-          },
-        );
-      },
     );
   }
 

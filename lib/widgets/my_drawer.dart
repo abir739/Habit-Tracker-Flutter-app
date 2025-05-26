@@ -47,8 +47,6 @@ class MyDrawer extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary),
             title: const Text('Statistics'),
             onTap: () {
-              // Navigator.pop(context);
-              // Navigate to a statistics screen
               Navigator.pushNamed(context, '/statistics');
             },
           ),

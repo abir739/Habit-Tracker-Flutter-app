@@ -10,17 +10,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
-  // initialize the Hive
+
   WidgetsFlutterBinding.ensureInitialized();
   final dir = await getApplicationDocumentsDirectory();
-
   Hive.init(dir.path);
-
-  // Hive register Adapters: Habit + AppSettings
   Hive.registerAdapter(HabitAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
-
-  // Open a Hive Box
   await Hive.openBox<Habit>('habits');
   await Hive.openBox<AppSettings>('app_settings');
 
@@ -42,6 +37,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       routes: {
         '/statistics': (context) => const StatisticsScreen(),
+        // '/settings': (context) => const SettingsScreen(),
       },
       debugShowCheckedModeBanner: false,
       theme: Provider.of<ThemeProvider>(context).themeData,

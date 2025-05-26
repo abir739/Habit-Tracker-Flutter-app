@@ -4,13 +4,10 @@ import 'package:habit_tracker/models/habit_model.dart';
 import 'package:hive/hive.dart';
 
 class HabitDatabase extends ChangeNotifier {
-  // reference the hive box
-  // open and get box
-
   final Box<Habit> habitBox = Hive.box<Habit>('habits');
   final Box<AppSettings> settingsBox = Hive.box<AppSettings>('app_settings');
 
-  // save first launch date
+// Save the app’s first launch date if not already set
   Future<void> saveFirstLaunchDate() async {
     if (settingsBox.isEmpty) {
       await settingsBox.put(
@@ -18,22 +15,23 @@ class HabitDatabase extends ChangeNotifier {
     }
   }
 
-  // get all Habits
+// Retrieve all habits
   List<Habit> getAllHabits() => habitBox.values.toList();
 
-  // add habit
+// Add a new habit to the box
   Future<void> addHabit(Habit habit) async {
     await habitBox.add(habit);
     notifyListeners();
   }
 
-  // delete habit
+// Remove a habit by index
   Future<void> deleteHabit(int index) async {
     await habitBox.deleteAt(index);
     notifyListeners();
   }
 
-  // Toggle completion for today : check habit on and off
+
+// Toggle a habit’s completion status for today
   Future<void> toggleHabitCompletion(int index) async {
     final habit = habitBox.getAt(index);
     if (habit == null) return;
@@ -52,8 +50,8 @@ class HabitDatabase extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Update: edit Habit name
-  Future<void> UpdateHabitName(int index, String newName) async {
+  // Update a habit’s name
+  Future<void> updateHabitName(int index, String newName) async {
     final habit = habitBox.getAt(index);
 
     if (habit == null) return;

@@ -17,8 +17,10 @@ class HeatmapCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       appBar: AppBar(
         title: Text('${habit.name ?? 'Habit'} Heatmap'),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
